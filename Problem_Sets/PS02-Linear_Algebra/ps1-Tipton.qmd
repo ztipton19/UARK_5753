@@ -1,0 +1,128 @@
+# Topic #1 Assignment
+### Zachary Tipton
+
+## Theoretical Questions
+
+1. Let: 
+```{r}
+data_a <- c(6, 7, 9, 1, 2, 3, 8, 4, 6)
+data_b <- c(10, 9, 8, 7, 5, 4, 1, 7, 6)
+data_c <- c(1, 0, 2, 0, 1, 0, 4, 0, 2)
+
+matrix_a <- matrix(data_a, nrow=3, ncol=3, byrow=TRUE)
+matrix_b <- matrix(data_b, nrow=3, ncol=3, byrow=TRUE)
+matrix_c <- matrix(data_c, nrow=3, ncol=3, byrow=TRUE)
+```
+
+i. 3B^T + A
+
+```{r}
+question_i <- 3 * t(matrix_b) + matrix_a
+
+print(question_i)
+```
+
+ii. C^T -4A
+
+```{r}
+question_ii <- t(matrix_c) - (4 * matrix_a)
+
+print(question_ii)
+```
+
+iii. (CA)'
+
+```{r}
+question_iii <- t(matrix_c %*% matrix_a)
+
+print(question_iii)
+
+question_iii_2 <- t(matrix_a) %*% t(matrix_c)
+
+print(question_iii_2)
+```
+
+2. Let: 
+
+```{r}
+X <- matrix(c(1, 2, 3, 4, 5, 6, 7, 8, 9), nrow=3, ncol=3)
+beta <- c(10, 20, 30)
+```
+
+Verify the following two are equivalent:
+$X\beta$ and $X_{\cdot,1}\beta_1 + X_{\cdot,2}\beta_2 + X_{\cdot,3}\beta_3$
+
+```{r}
+ver1 <- X %*% beta
+ver2 <- X[, 1] * beta[1] + X[, 2] * beta[2] + X[, 3] * beta[3]
+```
+
+```{r}
+print(ver1)
+print(ver2)
+```
+
+3. Match each matrix with its inverse:
+
+```{r}
+A <- matrix(c(1, 2, -1, -2, 0, 1, 1, -1, 0), nrow=3, ncol=3, byrow=TRUE)
+print(A)
+
+A_inv <- solve(A)
+print(A_inv)
+
+# the inverse of A is b
+```
+
+```{r}
+B <- matrix(c(2, 4, 1, -1, 1, -1, 1, 4, 0), nrow=3, ncol=3, byrow=TRUE)
+print(B)
+
+B_inv <- solve(B)
+print(B_inv)
+
+# the inverse of B is a
+```
+
+```{r}
+C <- matrix(c(1, 2, 3, 2, 4, 0, 0, 0, 3), nrow=3, ncol=3, byrow=TRUE)
+print(C)
+
+# C_inv <- solve(C)
+print(det(C))
+
+# the determinate of C is 0, so the matrix is not invertible
+```
+
+4. The distribution of $\begin{bmatrix} 1 & 1 \end{bmatrix} \varepsilon$ is derived as:
+
+$$ \begin{bmatrix} 1 & 1 \end{bmatrix} \varepsilon \sim \mathcal{N}\left( a'\mu, a'\Sigma a \right) $$
+
+where:
+$$ a'\mu = \begin{bmatrix} 1 & 1 \end{bmatrix} \begin{bmatrix} 1 \\ 1 \end{bmatrix} = 2 $$
+$$ a'\Sigma a = \begin{bmatrix} 1 & 1 \end{bmatrix} \begin{bmatrix} \sigma_1^2 & \sigma_{12} \\ \sigma_{12} & \sigma_2^2 \end{bmatrix} \begin{bmatrix} 1 \\ 1 \end{bmatrix} = \sigma_1^2 + \sigma_2^2 + 2\sigma_{12} $$
+
+Therefore:
+$$ \begin{bmatrix} 1 & 1 \end{bmatrix} \varepsilon \sim \mathcal{N}(2, \sigma_1^2 + \sigma_2^2 + 2\sigma_{12}) $$
+
+5. Let $f(x, y) = x^2 + y^2 + 2xy$
+i. What is $\frac{\partial f}{\partial x}f(x, y)$ and $\frac{\partial f}{\partial y}f(x, y)$?
+$$\frac{\partial f}{\partial x} = 2x + 2y$$
+
+$$\frac{\partial f}{\partial y} = 2y + 2x$$
+
+ii. Use this to create a taylor approximation of this function at $(x_0, y_0)$. Write this in the form of: 
+
+$$f(x_0 + dx, y_0 + dy) \approx f(x_0, y_0) + \begin{bmatrix} 2x_0 + 2y_0 & 2y_0 + 2x_0 \end{bmatrix} \begin{bmatrix} dx \\ dy \end{bmatrix}$$
+
+$$f(x_0 + dx, y_0 + dy) \approx f(x_0, y_0) + \begin{bmatrix} \frac{\partial f}{\partial x}(x_0, y_0) & \frac{\partial f}{\partial y}(x_0, y_0) \end{bmatrix} \begin{bmatrix} dx \\ dy \end{bmatrix}$$
+
+$$= f(x_0, y_0) + \begin{bmatrix} 2x_0 + 2y_0 & 2y_0 + 2x_0 \end{bmatrix} \begin{bmatrix} dx \\ dy \end{bmatrix}$$
+
+$$= x_0^2 + y_0^2 + 2x_0y_0 + (2x_0 + 2y_0)dx + (2y_0 + 2x_0)dy$$
+
+iii. Plug in $(x_0, y_0) = (0, 0)$ to create a linear approximation to this function
+
+At $(x_0, y_0) = (0,0)$:
+
+$$f(0 + dx, 0 + dy) \approx 0 + \begin{bmatrix} 0 & 0 \end{bmatrix} \begin{bmatrix} dx \\ dy \end{bmatrix} = 0$$
