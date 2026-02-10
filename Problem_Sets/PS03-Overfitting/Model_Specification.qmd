@@ -1,6 +1,6 @@
 ---
 title: "PS03 - Overfitting"
-author: "YOUR NAME"
+author: "Zachary Tipton"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 format: pdf
 ---
@@ -27,7 +27,7 @@ The above code cell loads our secret data-generating function, which you can cal
 It returns a dataset with four variables:
 - The outcome `y`
 - Two continuous covariates, `x1` and `x2`
-- A discrete variable called `group`.
+- A discrete variable called `group`. (Group A, B, or C)
 
 The outcome is generated through a non-linear combination of these covariates
 
@@ -39,10 +39,10 @@ We'll create a function that generates data, fits a regression model with a spec
 ## Function to evaluate model specification
 evaluate_model <- function(
   formula,
-  N = 500,
-  B = 100,
-  in_sample = TRUE,
-  seed = NULL
+  N = 500, # training data
+  B = 100, # repeat this many times
+  in_sample = TRUE, # can toggle to FALSE for oos mspe 
+  seed = NULL # would normally set to get the same numbers each output
 ) {
   if (!is.null(seed)) {
     set.seed(seed)
@@ -54,7 +54,7 @@ evaluate_model <- function(
     train_data <- draw_sample(N = N)
 
     ## Fit model on training data
-    model <- feols(formula, data = train_data)
+    model <- feols(formula, data = train_data) # fit the model, pass training data
 
     if (in_sample) {
       ## In-sample MSPE: predict on training data
@@ -85,6 +85,7 @@ evaluate_model <- function(
 ## Example 0: Intercept only
 
 To get a sense of how a truly bad model would perform, let's use just an intercept as our formula:
+- totally useless model
 
 ```{r}
 baseline_mspe <- evaluate_model(
@@ -100,10 +101,11 @@ mean(baseline_mspe)
 
 
 Let's start with a simple linear specification and evaluate its performance.
+- does a lot better than example 0, but we don't know how well. 
 
 ```{r}
 simple_linear_mspe <- evaluate_model(
-  formula = y ~ x1 + x2 + i(group),
+  formula = y ~ x1 + x2 + i(group), # two continuous variables and indicator variables for group
   N = 500,
   in_sample = TRUE
 )
@@ -119,7 +121,7 @@ Let's improve our model by adding quadratic terms to capture curvature in the re
 
 ```{r}
 poly_mspe <- evaluate_model(
-  formula = y ~ x1 + I(x1^2) + x2 + I(x2^2) + i(group),
+  formula = y ~ x1 + I(x1^2) + x2 + I(x2^2) + I(x1 * x2) + i(group), # I to do math, i for indicator variables
   N = 500,
   in_sample = TRUE
 )
@@ -151,13 +153,15 @@ By adding polynomial terms, we allow the model to capture non-linear relationshi
 
 ## Your Best Model
 
-Once you've found your best model, report it below. Make sure to use `set.seed(2025)` and `N = 500`!
+Once you've found your best model, report it below. Make sure to use `set.seed(20260210)` and `N = 500`!
 Use the tips below for adding different kinds of terms in your model
 
 ```{r}
 ## Experiment with different model specifications here
 ## Try different combinations of variables, polynomials, and interactions
-my_best_formula <- y ~ x1 + x2 + i(group) ## Change this!
+my_best_formula <- y ~ poly(x1, 3) + poly(x2, 3) + I(x1 * x2) + i(group) ## Change this!
+
+# actual formula <- y ~ x1 +x2 + x2^2 + x1^2 + I(x1 * x2) + i(group, x1) + i(group, x2) + i(group, x1 * x2)
 
 my_best_mspe <- evaluate_model(
   formula = my_best_formula,
@@ -166,7 +170,7 @@ my_best_mspe <- evaluate_model(
 )
 
 cat("My best in-sample MSPE:", mean(my_best_mspe), "\n")
-cat("Formula:", deparse(test_formula), "\n")
+cat("Formula:", deparse(my_best_formula), "\n")
 ```
 
 
@@ -302,17 +306,17 @@ cat(
 
 How did your model perform? Did the out-of-sample MSPE surprise you?
 
-
+- I originally went about cranking the hell out of the polynomials. My in-sample was starting to look quite nice.  And then my OOS ended up being like 100,000+ haha. Perfect overfitting example. So I then started to back off. I did not get in the ~4.xx like some of the better predictions, but 5.2-ish is still respectable. 
 
 #### Exercise
 
 1. Which model won the in-sample competition? How complicated was the winning formula?
-
+Austin of course won. He's way smarter than us econ nerds. His model had all the right interactions. The right grit. The right determination. It was the right model at the right time. As I'm pushed further down the rung by the next generation I acknowledge that I only have myself to blame. 
 
 
 2. How did the winning model perform out-of-sample? Did it generalize well, or did it overfit?
 
-
+Generalized well. 
 
 
 
@@ -421,7 +425,7 @@ evaluate_complexity <- function(
 }
 
 ## Run the complexity evaluation
-N = 30
+N = 100
 complexity_results <- evaluate_complexity(
   N = N,
   max_degree = 6,
@@ -450,16 +454,18 @@ ggplot(complexity_results, aes(x = degree, y = mspe, color = mspe_type)) +
 
 1. **Interpreting the Bias-Variance Tradeoff Plot**: 
   - At what degree does the out-of-sample MSPE reach its minimum? 
-  
-  - Why does the in-sample MSPE continue to decrease (or flatten) as complexity increases?
-  
-  - What happens to the gap between in-sample and out-of-sample MSPE as model complexity increases?
+  A: 2
 
+  - Why does the in-sample MSPE continue to decrease (or flatten) as complexity increases?
+  A: adding more terms can only reduce in-sample MSPE mechnaically. As more terms are added a little more noise is explained, and a little more, and a little more, and a little more, and a little more, and a little more
+
+  - What happens to the gap between in-sample and out-of-sample MSPE as model complexity increases?
+  A: if we get too complicated with the model, the in-sample MSPE looks great, but the OOS MSPE goes to the moon, greatly increasing the gap. This happens because the model is overfit and individual observations are pulling the model around. 
 
 
 2. **Optimal Complexity**: The true data generating process uses degree-2 polynomials for $x_1$ and $x_2$. Does the minimum out-of-sample MSPE occur at degree 2? If not, why might a more complex model show better out-of-sample performance?
 
-
+Minimum OOS MSPE does occur at degree 2. We quickly start to diverge as model complexity increases. 
 
 
 ## Sample Size and Model Complexity
@@ -569,7 +575,9 @@ ggplot(
 
 1. How does the gap between in-sample and out-of-sample performance change as sample size increases for the complex model? What does this tell us about the bias-variance tradeoff?
 
+A: As sample size increases, we see the gap between in-sample and out-of-sample performance decreasing. With a smaller sample size, we have high variance where each data point has a stronger effect on the shape of the curve. As sample size increases, we reduce variance, and new points aren't wildly altering the shape of the line. 
 
+Complex models often have lower bias (fit the true model) better than simplier models, but run more in danger of over-fitting. 
 
 
 
