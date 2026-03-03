@@ -147,7 +147,7 @@ The tails get fatter as the model has little data to work with. The model will g
 
 2. Does it effect the shape of the joint distribution?
 
-We see more "islands" show up in the joint distribution. This reflects the increased variation and more estimates falling into the tails of the distribution. 
+We see more "islands" show up in the joint distribution. This reflects the increased variation and more estimates falling into the tails of the distribution. The joint distribution also looks more "thin" at lower sample sizes. 
 
 ## 3. Changing error term distribution
 
@@ -192,7 +192,7 @@ for (b in 1:B) {
   X1 <- X[, 1]
   X2 <- X[, 2]
 
-  y <- 10 + X1 * 1 + X2 * 1 + rnorm(n, mean = 0, sd = 3)
+  y <- 10 + X1 * 1 + X2 * 1 + rnorm(n, mean = 0, sd = 3) # here we increase the error variance from 1 to 3
 
   df_b <- data.frame(X1 = X1, X2 = X2, y = y)
 
@@ -208,8 +208,7 @@ plot_ests(ests[, 2], ests[, 3])
 
 1. Comment on what happens to the standard deviation of the sample distribution and the joint distribution.
 
-
-
+The histogram gets wider as the error variance increases. The joint distribution also gets wider. The estimates are more spread out and less precise.
 
 ## 4. Changing covariance matrix of $X$
 
@@ -225,7 +224,7 @@ n <- 100
 ests <- matrix(nrow = B, ncol = 3)
 for (b in 1:B) {
   # Generate data
-  Sigma_X = matrix(c(1, 0.25, 0.25, 1), nrow = 2, ncol = 2)
+  Sigma_X = matrix(c(1, 0.25, 0.25, 1), nrow = 2, ncol = 2) # here we set the covariance between X1 and X2 to 0.25
   X <- rmvnorm(n = n, mean = c(1, 1), sigma = Sigma_X)
   X1 <- X[, 1]
   X2 <- X[, 2]
@@ -250,7 +249,7 @@ n <- 100
 ests <- matrix(nrow = B, ncol = 3)
 for (b in 1:B) {
   # Generate data
-  Sigma_X = matrix(c(1, 0.99, 0.99, 1), nrow = 2, ncol = 2)
+  Sigma_X = matrix(c(1, 0.99, 0.99, 1), nrow = 2, ncol = 2) # here we increase the covariance from 0.25 to 0.99
   X <- rmvnorm(n = n, mean = c(1, 1), sigma = Sigma_X)
   X1 <- X[, 1]
   X2 <- X[, 2]
@@ -271,12 +270,15 @@ plot_ests(ests[, 2], ests[, 3])
 
 1. Comment on what happens to the standard deviation of the sample distribution and the joint distribution.
 
+The standard deviation of the sample distribution increases as the covariance between X1 and X2 increases. The joint distribution tilts and becomes more elongated along the downward sloping line. This shows that they are highly negatively correlated.    
+
 2. For the case of an extreme positive correlation ($0.99$), I want you to think about why the results look the way the do. 
    Try to explain why in your own words. 
    Does this change as we increase $n$?
 
+As one variable increases, the other variable also increases. Basically, they are both tracking each other and the model doesn't know how to distinguish their individual effects. 
 
-
+Adding more data doesn't help, but will just cluster the estimates more tightly around the mean. The estimates will still be highly correlated and the joint distribution will still be elongated along the downward sloping line.
 
 
 ## 6. Forecasts with collinearity
@@ -354,7 +356,7 @@ The function below takes two key arguments:
 For each simulation, we:
 1. Generate data and estimate OLS with `feols`.
 2. Construct a confidence interval using the requested standard errors.
-3. Record whether the true coefficient is inside that interval.
+3. Record whether the true coefficient is inside that interval. (coverage)
 4. Return the empirical coverage rate.
 
 ```{r}
@@ -430,41 +432,59 @@ coverage_simulation(n = 1000, error_type = "cluster", se_type = ~g) # 50 groups 
 1. In the coverage simulation, keep `error_type = "iid"` and compare `se_type = "iid"`, `se_type = "hc1"`, and `se_type = ~ g` (clustered). Do the coverage rates differ? Why or why not?
 
 ```{r}
-
+coverage_simulation(n = 100, error_type = "iid", se_type = "iid")
+coverage_simulation(n = 100, error_type = "iid", se_type = "hc1")
+coverage_simulation(n = 100, error_type = "iid", se_type = ~g)
 ```
+
+error_type = "iid" and se_type = "iid" should give us good coverage (here 94%) because the standard error estimation matches the true error structure.
+
+error_type = "iid" and se_type = "hc1" should similarly perform well, because the more robust standard error estimator is still consistent under homoskedasticity. Our result is 94% coverage. 
+
+error_type = "iid" and se_type = ~g performs at 88% coverage, which is much worse than the other two. This is likely because the clustered standard error estimator is trying to estimate clustered error structure when there is none. 
 
 2. Set `error_type = "heteroskedastic"` and compare `se_type = "iid"` to `se_type = "hc1"`. 
    Which one is closer to 95% coverage? 
    Explain in a sentence. 
 
 ```{r}
-
+coverage_simulation(n = 100, error_type = "heteroskedastic", se_type = "iid")
+coverage_simulation(n = 100, error_type = "heteroskedastic", se_type = "hc1")
 ```
+
+se_type = "hc1" is closer to 95% coverage (94%) than se_type = "iid" (86%) because the "hc1" standard error estimator is robust to heteroskedasticity, while the "iid" standard error estimator is not. 
 
 3. Increase the sample size in exercise 2. 
    Does this fix the problem? 
    Explain why or why not.
 
 ```{r}
-
+coverage_simulation(n = 1000, error_type = "heteroskedastic", se_type = "iid")
+coverage_simulation(n = 1000, error_type = "heteroskedastic", se_type = "hc1")
 ```
 
+Increasing the sample size slightly improves the coverage of se_type = "iid" (from 86% to 88%), but it is still the incorrect standard error estimator. The coverage of se_type = "hc1" remains good (94%). 
 
 4. Set `error_type = "cluster"` and compare `se_type = "iid"` to `se_type = ~g`. 
    Which one is closer to 95% coverage? 
    What is the role of clustering here?
 
 ```{r}
+coverage_simulation(n = 100, error_type = "cluster", se_type = "iid")
 
+coverage_simulation(n = 100, error_type = "cluster", se_type = ~g)
 ```
+
+At $n$ = 100, se_type = "iid" is still performing well with almost 96% coverage, while se_type = ~g is performing worse with 88% coverage. However, increasing $n$ to 1000 increased the coverage of se_type = ~g to 94%. Clustering breaks the assumption of independence of errors with a "class_shock" that affects all observations in a cluster. 
 
 5. Increase the number of clusters by setting `n = 600` (30 groups of 20) in `coverage_simulation`. 
    With `error_type = "cluster"` and `se_type = ~g`, how does the coverage rate change relative to `n = 100`?
 
 ```{r}
-
+coverage_simulation(n = 600, error_type = "cluster", se_type = ~g)
 ```
 
+I played around with this idea above by setting $n$ to 1000, but didn't know exactly how the cluster size was being determined. As we saw, increasing the number of clusters to 30 improves the coverage of se_type = ~g to 94%. This is because clustered standard errors require a sufficient number of clusters to perform well.
 
 6. Bonus: small-sample inference. 
    We know that when `n` is small, our standard normal approximation performs relatively poorly. 
