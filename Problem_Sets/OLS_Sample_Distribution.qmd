@@ -46,8 +46,6 @@ plot_ests <- function(est1, est2) {
 }
 ```
 
-
-
 ## Baseline Simulation
 
 We begin with a simple data-generating process where $X_1$ and $X_2$ are independent standard normals, the error is iid normal, and the true coefficients are $(10, 1, 1)$.
@@ -95,7 +93,7 @@ This shows how sampling variability shrinks as $n$ grows.
 #| fig-height: 6
 #| fig-width: 8
 B <- 1000
-n <- 10
+n <- 10 # here we lower n from 1000 to 10
 ests <- matrix(nrow = B, ncol = 3)
 for (b in 1:B) {
   # Generate data
@@ -120,7 +118,7 @@ plot_ests(ests[, 2], ests[, 3])
 #| fig-height: 6
 #| fig-width: 8
 B <- 1000
-n <- 1000
+n <- 1000 # back to 1000
 ests <- matrix(nrow = B, ncol = 3)
 for (b in 1:B) {
   # Generate data
@@ -145,9 +143,11 @@ plot_ests(ests[, 2], ests[, 3])
 
 1. How does the sample size shape the sample distribution of each coefficient? 
 
+The tails get fatter as the model has little data to work with. The model will generate more values for the beta parameters deviating from the mean. The sampling distribution gets wider with increased variance. 
+
 2. Does it effect the shape of the joint distribution?
 
-
+We see more "islands" show up in the joint distribution. This reflects the increased variation and more estimates falling into the tails of the distribution. 
 
 ## 3. Changing error term distribution
 
