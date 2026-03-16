@@ -1,6 +1,6 @@
 ---
 title: "Regression in Practice"
-author: "Your Name"
+author: "Zachary Tipton"
 format: pdf
 ---
 ```{r setup}
@@ -35,22 +35,48 @@ Like good data analysts, let's create histograms of both variables.
 Comment on the distribution. 
 
 ```{r}
+ggplot(df, aes(x = total_value)) +
+  geom_histogram(bins = 50, fill = "steelblue", color = "white") +
+  labs(
+    title = "Histogram of Assessed Home Value",
+    x = "Total Value",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+ggplot(df, aes(x = lot_size_acres)) +
+  geom_histogram(bins = 50, fill = "darkgreen", color = "white") +
+  labs(
+    title = "Histogram of Lot Size",
+    x = "Lot Size (Acres)",
+    y = "Count"
+  ) +
+  theme_minimal()
 
 ```
 
 *Answer:*
-
+Both distributions are right-skewed, with a long tail of high values. 
 
 
 Now, let's look at a few explanatory variables. 
 Use the `table` function to explore the distribution of `n_rooms` and make a histogram of `z_mls_acres`. 
 
 ```{r}
+table(df$n_rooms)
 
+ggplot(df, aes(x = z_mls_acres)) +
+  geom_histogram(bins = 50, fill = "orange", color = "white") +
+  labs(
+    title = "Histogram of Minimum Lot Size Zoning",
+    x = "z_mls_acres",
+    y = "Count"
+  ) +
+  theme_minimal()
 ```
 
 *Answer:*
-
+Also right-skewed, with a long tail of high values, with a large spike at 0.8 acres.
 
 ### Relationship between lot size and building value
 
@@ -60,7 +86,9 @@ However, there is way too many points to plot in the dataset, so we will sample 
 
 ```{r}
 sample_df <- df[sample(1:nrow(df), 25000), ]
-
+plot(sample_df$lot_size_acres, sample_df$building_value, 
+     xlab = "Lot Size (Acres)", ylab = "Building Value", 
+     main = "Scatter Plot of Lot Size vs Building Value")
 ```
 
 #### Bivariate regression
@@ -70,11 +98,12 @@ Interpret the regression coefficient and comment on it's statistical significanc
 Make sure to use `vcov = "HC1"` to get robust standard errors.
 
 ```{r}
-
+biv_mod <- feols(building_value ~ lot_size_acres, data = sample_df, vcov = "HC1")
+summary(biv_mod)
 ```
 
 *Answer:*
-
+A 1 acre increase in lot size is associated with a $117,408.3 +/- $3260.29 increase in building value. The result is statistically significant at the 1% level.
 
 
 
@@ -96,6 +125,25 @@ pred_grid <- data.frame(
   lot_size_acres = seq(0, 4, 0.01)
 )
 
+pred_grid$pred_building_value <- predict(biv_mod, newdata = pred_grid)
+
+plot(
+  sample_df$lot_size_acres,
+  sample_df$building_value,
+  pch = 16,
+  cex = 0.4,
+  col = rgb(0, 0, 0, 0.15),
+  xlab = "Lot Size (Acres)",
+  ylab = "Building Value",
+  main = "Building Value vs. Lot Size with Linear Fit"
+)
+
+lines(
+  pred_grid$lot_size_acres,
+  pred_grid$pred_building_value,
+  col = "red",
+  lwd = 2
+)
 ```
 
 
@@ -106,11 +154,25 @@ Add the option `se.fit = TRUE` to your `predict` call to get a standard error fo
 Present your result with a 95\% confidence interval.
 
 ```{r}
+pred_15 <- predict(
+  biv_mod,
+  newdata = data.frame(lot_size_acres = 1.5),
+  se.fit = TRUE
+)
 
+predicted_value <- pred_15$fit
+se_pred <- pred_15$se.fit
+
+ci_lower <- predicted_value - 1.96 * se_pred
+ci_upper <- predicted_value + 1.96 * se_pred
+
+predicted_value
+ci_lower
+ci_upper
 ```
 
 *Answer:* 
-
+Our predicted value for a home on a 1.5 acre lot is $391,049.10, with a 95% confidence interval of [$383,392.30, $398,706.00].
 
 #### Polynomial
 
@@ -120,7 +182,35 @@ Forecast this model using `pred_grid` and create a new forecast plot similar to 
 Add lines for both the linear fit (in red) and the polynomial fit (in blue)
 
 ```{r}
+poly_mod <- feols(building_value ~ poly(lot_size_acres, 4), data = df, vcov = "HC1")
+summary(poly_mod)
 
+pred_grid$pred_poly <- predict(poly_mod, newdata = pred_grid)
+
+plot(
+  sample_df$lot_size_acres,
+  sample_df$building_value,
+  pch = 16,
+  cex = 0.4,
+  col = rgb(0, 0, 0, 0.15),
+  xlab = "Lot Size (Acres)",
+  ylab = "Building Value",
+  main = "Building Value vs. Lot Size"
+)
+
+lines(
+  pred_grid$lot_size_acres,
+  pred_grid$pred_building_value,
+  col = "red",
+  lwd = 2
+)
+
+lines(
+  pred_grid$lot_size_acres,
+  pred_grid$pred_poly,
+  col = "blue",
+  lwd = 2
+)
 ```
 
 #### Adding other predictors
@@ -130,22 +220,40 @@ Let's create indicatro variables for each value of `n_rooms` using the `i` funct
 Control for building_area linearly.
 
 ```{r}
+rooms_poly_mod <- feols(
+  building_value ~ poly(lot_size_acres, 4) + i(n_rooms) + building_area,
+  data = df,
+  vcov = "HC1"
+)
 
+summary(rooms_poly_mod)
 ```
 
 Answer the following questions:
 
 1. What is the omitted category for `n_rooms`? 
+    
+    n_rooms::3 is the omitted category, meaning that the coefficients on the other `n_rooms` indicators are interpreted relative to homes with 3 rooms.
 
 2. Interpret in words the coefficient on `n_rooms::7` and comment on it's statistical significance.
+    
+    The coefficient on `n_rooms::7` is $57,785.60, meaning that homes with 7 rooms are estimated to be worth $57,785.60 more than homes with 3 rooms, holding lot size and building area constant (ceteris paribus). This result is statistically significant at the 1% level.
 
 3. We could have run a regression controlling linearly for the number of rooms (treating it as a continuous measure). Do your estimates for `i(n_rooms)` make you comfortable with making that simplifying assumption?
 
+    No, the relationship between the number of rooms and building value does not appear to be linear. The coefficients on `i(n_rooms)` do not increase by a constant amount as the number of rooms increases, which suggests that treating `n_rooms` as a continuous variable would not capture the true relationship well.
+
 4. What is the estimated return on square footage for homes in Massachusetts? To help put this result in context, mulitply this coefficient by  the standard deviation of `building_area`. Your interpretation will be a for "1 standard deviation increase in `building_area`"  
+    
+```{r}
+sd(df$building_area, na.rm = TRUE)
+coef(rooms_poly_mod)["building_area"]
+coef(rooms_poly_mod)["building_area"] * sd(df$building_area, na.rm = TRUE)
+```
 
 *Answer:*
 
-
+A one standard deviation increase in building area is associated with about a $73,471 increase in building value, holding lot size and room indicators fixed.
 
 
 
@@ -161,14 +269,26 @@ It will look like `y ~ x | town`.
 Modify the previous regression model to add town "fixed effects" (i.e. a set of indicators for each town).
 
 ```{r}
+rooms_poly_fe_mod <- feols(
+  building_value ~ poly(lot_size_acres, 4) + i(n_rooms) + building_area | town,
+  data = df,
+  vcov = "HC1"
+)
+
+summary(rooms_poly_fe_mod)
 
 ```
 
 How does this result change our estimate on `building_area`?
 
+```{r}
+coef(rooms_poly_mod)["building_area"]
+coef(rooms_poly_fe_mod)["building_area"]
+```
+
 *Answer:*
 
-
+The estimate for `building_area` is slightly different when we include town fixed effects. The coefficient is now $83.69, which is higher than the previous estimate of $57.11. 
 
 
 ### Zoning Regulation
@@ -185,4 +305,30 @@ Make sure to interpret the statistical significance of your results.
 
 *Answer:* 
 
+```{r}
+zoning_mod <- feols(
+  lot_size_acres ~ z_mls_acres + z_mls_acres^2 + z_mls_acres^3,
+  data = df,
+  vcov = "HC1"
+)
 
+summary(zoning_mod)
+
+zoning_grid <- data.frame(
+  z_mls_acres = seq(0, 2, 0.05)
+)
+
+zoning_grid$pred_lot_size <- predict(zoning_mod, newdata = zoning_grid)
+
+plot(
+  pred_lot_size ~ z_mls_acres,
+  data = zoning_grid,
+  type = "l",
+  col = "red",
+  lwd = 2,
+  xlab = "Minimum Lot Size Regulation",
+  ylab = "Predicted Lot Size"
+)
+```
+
+The regression shows a positive and statistically significant relationship between stricter minimum lot size regulation and larger observed lot sizes. However, the predicted lot size is always below the minimum lot size regulation.
