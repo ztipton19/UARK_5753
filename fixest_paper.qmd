@@ -1,0 +1,47 @@
+
+```{r}
+library("fixest")
+data(base_did)
+scipubs = with(
+  base_did,
+  data.frame(
+    articles = round(y - min(y)),
+    funding = round(x1 - min(x1)) * 10,
+    eu_us = ifelse(treat, "EU", "US"),
+    policy = +(period - id > 0),
+    indiv = id,
+    year = period
+  )
+)
+```
+
+## 2.0.1 Ordinary least squares estimation
+Similar to LM but better
+```{r}
+feols(articles ~ funding + as.factor(indiv) + as.factor(year), scipubs)
+```
+
+Use | to speed up processing
+```{r}
+feols(articles ~ funding | indiv + year, scipubs)
+```
+
+Cluster standard errors
+
+```{r}
+feols(articles ~ funding | indiv + year, scipubs, vcov = ~indiv)
+```
+
+Effecient way to check multiple error computations
+
+```{r}
+feols(articles ~ funding | indiv + year, scipubs) |>
+  etable(vcov = list("iid", ~indiv))
+```
+
+Estimate separate models for each region
+
+```{r}
+feols(articles ~ funding | indiv + year, scipubs, split = ~eu_us) |>
+  etable()
+```
