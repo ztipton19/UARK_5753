@@ -24,223 +24,80 @@ library(stringr)
 library(tidyr)
 ```
 
-```{r}
-# Load and clean data
-df <- read_csv("data/college_scorecard/college_scorecard.csv", show_col_types = FALSE) |>
+```{r load-and-clean}
+df_raw <- read_csv("data/college_scorecard/college_scorecard.csv", show_col_types = FALSE)
+
+df <- df_raw |>
+  # Fix typos and misleading names in the raw data
+  rename(
+    predominantly_black_institution = predominetly_black_institution,
+    loan_default_rate_3yr           = load_default_rate_3yr,
+    share_white                     = n_students_white,
+    share_black                     = n_students_black,
+    share_hispanic                  = n_students_hispanic,
+    share_asian                     = n_students_asian,
+    share_native                    = n_students_native
+  ) |>
+  # Fix columns that were read in as character
   mutate(
-    share_low_income = as.numeric(share_low_income),
-    mean_earnings_10yr_after = as.numeric(mean_earnings_10yr_after),
+    share_low_income          = as.numeric(share_low_income),
+    median_earnings_10yr_after = as.numeric(median_earnings_10yr_after),
     online_only = if_else(online_only %in% c(1, "1", "Online only"), 1, 0),
     ownership = factor(ownership),
-    state = factor(state),
-    high_completion = completion_rate >= 0.60
+    state     = factor(state),
+    region    = factor(region)
   )
 ```
+
+```{r missingness-report}
+#| echo: false
+
+outcome_vars <- c(
+  "completion_rate",
+  "median_earnings_10yr_after",
+  "avg_cost_attendance",
+  "loan_default_rate_3yr"
+)
+
+n_total   <- nrow(df)
+n_online  <- sum(df$online_only == 1, na.rm = TRUE)
+n_hbcu    <- sum(df$hbcu == 1, na.rm = TRUE)
+n_pbi     <- sum(df$predominantly_black_institution == 1, na.rm = TRUE)
+
+missingness <- tibble(
+  Variable = outcome_vars,
+  N_missing = sapply(outcome_vars, \(v) sum(is.na(df[[v]]))),
+  Pct_missing = sapply(outcome_vars, \(v) mean(is.na(df[[v]])) * 100),
+  N_missing_HBCU = sapply(outcome_vars, \(v) sum(is.na(df[[v]][df$hbcu == 1]))),
+  N_missing_PBI  = sapply(outcome_vars, \(v) sum(is.na(df[[v]][df$predominantly_black_institution == 1])))
+)
+```
+
+**Full dataset (before any restrictions):** `r n_total` institutions — including `r n_online` online-only, `r n_hbcu` HBCUs, and `r n_pbi` PBIs.
+
+```{r missingness-table}
+#| echo: false
+knitr::kable(
+  missingness,
+  digits = 1,
+  col.names = c("Variable", "N missing", "% missing", "Missing (HBCU)", "Missing (PBI)"),
+  caption   = "Missingness in main outcome variables before sample restrictions"
+)
+```
+
+```{r sample-restrictions}
+df <- df |>
+  filter(online_only != 1)
+
+# Derived variables
+df <- df |>
+  mutate(
+    hbcu_or_pbi   = as.integer(hbcu == 1 | predominantly_black_institution == 1),
+    share_nonwhite = share_black + share_hispanic + share_asian + share_native
+  )
+```
+
+**After dropping online-only schools:** `r nrow(df)` institutions remain (`r n_total - nrow(df)` dropped).
 
 ## Introduction
 
-This report uses the College Scorecard dataset from the U.S. Department of Education to study how college characteristics relate to student outcomes.
-I focus on whether colleges with higher completion rates tend to have higher median earnings ten years after entry.
-This is an important question because prospective students may care about both finishing school and the labor market returns associated with attending different institutions.
-
-## 1. Familiarizing the Reader with the Data
-
-I begin by describing the distribution of a few key variables in the dataset.
-The main outcome I study is `median_earnings_10yr_after`.
-I also summarize `completion_rate` and a binary indicator for whether a school has a completion rate of at least 60 percent.
-
-```{r}
-earnings_mean <- mean(df$median_earnings_10yr_after, na.rm = TRUE)
-earnings_median <- median(df$median_earnings_10yr_after, na.rm = TRUE)
-completion_mean <- mean(df$completion_rate, na.rm = TRUE)
-share_high_completion <- mean(df$high_completion, na.rm = TRUE)
-```
-
-The average median earnings ten years after entry are `r dollar(earnings_mean)`, and the median is `r dollar(earnings_median)`.
-The average completion rate is `r percent(completion_mean, accuracy = 0.1)`.
-About `r percent(share_high_completion, accuracy = 0.1)` of colleges in the sample have a completion rate of at least 60 percent.
-
-```{r}
-#| fig.cap: "Distribution of median earnings 10 years after entry"
-#| label: fig-earnings-hist
-ggplot(df, aes(x = median_earnings_10yr_after)) +
-  geom_histogram(bins = 30, fill = "#2C6E49", color = "white") +
-  scale_x_continuous(labels = dollar_format()) +
-  labs(
-    x = "Median earnings 10 years after entry",
-    y = "Number of colleges",
-    title = "Median earnings vary substantially across colleges"
-  ) +
-  theme_light(base_size = 14)
-```
-
-```{r}
-#| fig.cap: "Distribution of college completion rates"
-#| label: fig-completion-hist
-ggplot(df, aes(x = completion_rate)) +
-  geom_histogram(bins = 30, fill = "#7A9E7E", color = "white") +
-  scale_x_continuous(labels = percent_format(accuracy = 1)) +
-  labs(
-    x = "Completion rate",
-    y = "Number of colleges",
-    title = "Completion rates differ widely across institutions"
-  ) +
-  theme_light(base_size = 14)
-```
-
-## 2. Investigating the Relationship Between Two Variables
-
-My main bivariate question is whether colleges with higher completion rates also have higher median earnings ten years after entry.
-One possible motivation is that schools with stronger academic support, better resources, or more prepared students may both graduate more students and produce better labor market outcomes.
-
-```{r}
-plot_df <- df |>
-  select(completion_rate, median_earnings_10yr_after) |>
-  drop_na()
-
-corr_completion_earnings <- cor(
-  plot_df$completion_rate,
-  plot_df$median_earnings_10yr_after
-)
-
-est_bivariate <- feols(
-  median_earnings_10yr_after ~ completion_rate,
-  data = df,
-  vcov = "HC1"
-)
-
-effect_10pp <- coef(est_bivariate)["completion_rate"] * 0.10
-```
-
-The correlation between completion rate and median earnings is `r round(corr_completion_earnings, 3)`.
-The bivariate regression suggests that a 10 percentage point increase in completion rate is associated with about `r dollar(effect_10pp)` higher median earnings, on average.
-
-```{r}
-#| fig.cap: "Completion rates and post-college earnings"
-#| label: fig-completion-earnings
-ggplot(plot_df, aes(x = completion_rate, y = median_earnings_10yr_after)) +
-  geom_point(alpha = 0.45, color = "#355070") +
-  geom_smooth(method = "lm", se = TRUE, color = "#BC4749") +
-  scale_x_continuous(labels = percent_format(accuracy = 1)) +
-  scale_y_continuous(labels = dollar_format()) +
-  labs(
-    x = "Completion rate",
-    y = "Median earnings 10 years after entry",
-    title = "Schools with higher completion rates tend to have higher earnings"
-  ) +
-  theme_light(base_size = 14)
-```
-
-## 3. Adding Additional Controls
-
-The bivariate relationship may partly reflect omitted variables.
-For example, colleges serving more low-income students may face different labor market and completion outcomes, and more selective or more expensive schools may also differ in ways that affect earnings.
-To address this concern, I add controls for student economic background, institution type, online status, admissions selectivity, and school size.
-
-```{r}
-est_controls <- feols(
-  median_earnings_10yr_after ~ completion_rate + share_low_income +
-    admission_rate + log(n_students) + online_only + ownership,
-  data = df,
-  vcov = "HC1"
-)
-
-coef_compare <- tibble(
-  model = c("Bivariate", "With controls"),
-  effect_of_10pp = c(
-    coef(est_bivariate)["completion_rate"] * 0.10,
-    coef(est_controls)["completion_rate"] * 0.10
-  )
-)
-```
-
-After adding controls, the estimated effect of a 10 percentage point increase in completion rate is:
-
-```{r}
-coef_compare
-```
-
-This comparison shows whether the simple bivariate relationship was overstating or understating the association between completion and later earnings.
-In the final version of the writeup, interpret how much the coefficient changes and whether it remains statistically meaningful.
-
-## 4. Interaction Effects
-
-Next, I test whether the relationship between completion rates and earnings differs by college ownership.
-This interaction is useful because the returns associated with completion may vary across public, private nonprofit, and private for-profit institutions.
-
-```{r}
-est_interaction <- feols(
-  median_earnings_10yr_after ~ completion_rate * ownership +
-    share_low_income + admission_rate + log(n_students) + online_only,
-  data = df,
-  vcov = "HC1"
-)
-```
-
-The interaction model allows the slope on completion rate to differ across ownership types.
-In the final writeup, describe whether the completion-earnings relationship appears stronger for some sectors than for others.
-
-## 5. Forecast Model
-
-Finally, I split the data into training and testing samples to evaluate out-of-sample prediction.
-The goal is not only to explain earnings, but also to assess how well a model forecasts unseen colleges.
-
-```{r}
-set.seed(5753)
-
-forecast_df <- df |>
-  select(
-    median_earnings_10yr_after, completion_rate, share_low_income,
-    admission_rate, n_students, online_only, ownership
-  ) |>
-  drop_na()
-
-n <- nrow(forecast_df)
-train_index <- sample(seq_len(n), size = floor(0.8 * n))
-
-train_df <- forecast_df[train_index, ]
-test_df <- forecast_df[-train_index, ]
-
-forecast_model <- feols(
-  median_earnings_10yr_after ~ completion_rate + share_low_income +
-    admission_rate + log(n_students) + online_only + ownership,
-  data = train_df
-)
-
-test_df <- test_df |>
-  mutate(
-    prediction = predict(forecast_model, newdata = test_df),
-    prediction_error = median_earnings_10yr_after - prediction,
-    squared_error = prediction_error^2
-  )
-
-mspe <- mean(test_df$squared_error)
-mae <- mean(abs(test_df$prediction_error))
-```
-
-The test-sample mean squared prediction error is `r comma(round(mspe, 0))`.
-The test-sample mean absolute prediction error is `r dollar(mae)`.
-
-```{r}
-#| fig.cap: "Prediction errors by share of low-income students"
-#| label: fig-prediction-errors
-ggplot(test_df, aes(x = share_low_income, y = prediction_error)) +
-  geom_point(alpha = 0.5, color = "#3A5A40") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "#BC4749") +
-  scale_x_continuous(labels = percent_format(accuracy = 1)) +
-  scale_y_continuous(labels = dollar_format()) +
-  labs(
-    x = "Share of low-income students",
-    y = "Prediction error",
-    title = "Forecast errors may vary across school characteristics"
-  ) +
-  theme_light(base_size = 14)
-```
-
-In the final report, explain whether the forecast model performs reasonably well and whether prediction errors are systematically larger for schools serving particular student populations.
-
-## Conclusion
-
-This project studies how institutional characteristics are related to long-run earnings outcomes in the College Scorecard data.
-The main analysis focuses on the relationship between completion rates and median earnings, then examines how that relationship changes after adding controls and interactions.
-The forecasting exercise provides an additional way to evaluate whether the model captures meaningful variation in college outcomes.
