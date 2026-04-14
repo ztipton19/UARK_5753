@@ -1,6 +1,6 @@
 ---
 title: "Smoothing Methods in R"
-author: "PUT YOUR NAME HERE"
+author: "Zachary Tipton"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 format: pdf
 ---
@@ -44,7 +44,8 @@ slide_dbl(uark_enrollment$total, mean, .before = 1, .after = 1, .complete = TRUE
 Manually, check this is true for $y_{2013}$ by averaging the first 3 uark_enrollment$total:
 
 ```{r}
-
+enroll2013_smooth <- (uark_enrollment$total[1] + uark_enrollment$total[2] + uark_enrollment$total[3]) / 3
+enroll2013_smooth
 ```
 
 
@@ -79,6 +80,11 @@ slide_dbl(uark_enrollment$total, mean, .before = 3, .after = 0, .complete = TRUE
 3. Compare this to the result of `acf` function
 
 ```{r}
+uark_enrollment$y_lead <- slide_dbl(uark_enrollment$total, mean, .before = 0, .after = 1, .complete = TRUE)
+
+cor(uark_enrollment$total, uark_enrollment$y_lead, use = "complete.obs")
+
+acf(uark_enrollment$total, plot = FALSE)$acf[2]  # [1] is lag-0, [2] is lag-1
 
 ```
 
