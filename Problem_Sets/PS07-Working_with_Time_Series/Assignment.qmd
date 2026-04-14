@@ -1,6 +1,6 @@
 ---
 title: "Working with Time Series Data"
-author: "PUT YOUR NAME HERE"
+author: "Zachary Tipton"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 format: pdf
 ---
@@ -39,7 +39,7 @@ What do you see?
 
 **Answer:**
 
-
+From 2012 to 2020 we're seeing a concave trend where enrollment marginally increases from 2012 to 2018 and then starts to decrease in 2019 and hold steady for 2020. We then see a sharp increase in enrollment each year from 2021 to 2024. Eyeballing it-the 2024 enrollment figure seems about 10,000 more than 2014. 
 
 
 ## Working with dates
@@ -75,7 +75,7 @@ For example, say I wanted to plot the points scored by Arkansas over the season.
 Try that below, maybe with `date` or with `month`/`day`?
 
 ```{r}
-
+#plot(football$date, football$pts)
 ```
 
 
@@ -163,7 +163,7 @@ So returning to our previous problem, we can convert our string of dates to actu
 But, if we try with `date`, we will get an error:
 ```{r}
 #| eval: FALSE
-date(football$date)
+#date(football$date)
 ```
 
 This is because the date is in an ambiguous format. It does not know if "11-04-2023" is November 4th or April 11th. (aside, year-month-day is the best format for this and other reasons !)
@@ -192,7 +192,8 @@ Okay, say we have a vector of `Date`s. I can use `lubridate`'s `year()`/`month()
 Try the month function out on `football$date`. 
 What happens if you add the argument `label = TRUE` option to `month`?
 ```{r}
-
+month(football$date)
+month(football$date, label = TRUE)
 ```
 
 
@@ -214,12 +215,10 @@ What is the most common month in the football dataset?
 Hint: use the `month` and `table` function for this.
 
 ```{r}
-
+table(month(football$date, label = TRUE))
 ```
 
-
-
-
+September is the most common month.
 
 ### Sorting by date
 
@@ -243,13 +242,13 @@ Let's introduce a new dataset on the rate of unemployment in the US. Sorry for
 unemployment <- read.csv("data/unemployment.csv")
 
 # Convert `date` string into a `Date`:
-
+unemployment$date <- ymd(unemployment$date)
 ```
 
 
 Now, let's make a time-series plot of the unemployment rate over time
 ```{r}
-
+plot(unemployment$date, unemployment$unrate)
 ```
 
 
@@ -261,16 +260,17 @@ One important variable we might want is the quarter that a date falls within (Q1
 
 ```{r}
 # make new variable in unemployment called `quarter`
-
+unemployment$quarter <- quarter(unemployment$date)
 ```
 
 
 What does the argument `type = "year.quarter"` do? What is the difference?
 
 ```{r}
-
+unemployment$quarter <- quarter(unemployment$date, type = "year.quarter")
 ```
 
+year.quarter attaches the year to start. So quarter() outputs 1 for Q1, year.quarter outputs 1976.1 for Q1 1976.
 
 ## Basic time-series regression
 
@@ -293,38 +293,53 @@ feols(
 1. What day will it be in 37 days?
 
 ```{r}
-
+date(today + 37)
 ```
 
+May 21st, 2026
 
 2. How many days away is the fourth of July from today?
 
 ```{r}
-
+july4 <- date("2026-07-04")
+today - july4
 ```
+
+81 days away.
 
 
 3. What day of the week is the fourth of July?
 
 ```{r}
-
+wday(july4, label = TRUE)
 ```
 
+Saturday
 
 4. How many February 29th have their been since 1990? 
 
 ```{r}
+dates <- paste0(1990:2026, "-02-29")
+
+table(!is.na(ymd(dates)))
 
 ```
+
+There have been 9 Feb 29ths since 1990.
 
 
 5. How many Friday the 13th have there been since 2000?
 
 ```{r}
+fri13 <- seq(date("2000-01-13"), date("2026-04-13"), by = "month")
+
+classes_fri <- fri13[wday(fri13, label = TRUE) %in% c("Fri")]
+
+length(classes_fri)
 
 ```
 
-
+There have been 46 Friday the 13ths since 2000.
 
 
 
