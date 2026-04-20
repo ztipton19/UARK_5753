@@ -5,6 +5,9 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 format: pdf
 ---
 
+```{r}
+setwd("Problem_Sets/PS08-Smoothing_Methods")
+```
 ## Smoothing methods
 
 To estimate a rolling average, we will use the `slider` package. You may need to install it using `instll.packages("slider")`.
@@ -83,19 +86,29 @@ slide_dbl(uark_enrollment$total, mean, .before = 3, .after = 0, .complete = TRUE
 library(dplyr)
 library(slider)
 
+# 1) Get y_{t+1} (lead) using slide_dbl
 uark_enrollment <- uark_enrollment %>%
   mutate(
     y_lead = slide_dbl(
-      enrollment,                # replace with your y variable name if different
-      ~ if (length(.x) < 2) NA_real_ else .x[2],
-      .before = 0,
-      .after = 1
+      total,
+      mean,
+      .before = -1,
+      .after = 1,
+      .complete = TRUE
     )
   )
 
-# 2) rho_1 from y_t and y_{t+1}
-rho1_manual <- with(uark_enrollment, cor(enrollment, y_lead, use = "complete.obs"))
+# 2) rho_1 using the ACF formula
+y <- uark_enrollment$total
+y_bar <- mean(y)
+rho1_manual <- sum((y[-length(y)] - y_bar) * (y[-1] - y_bar)) / sum((y - y_bar)^2)
 rho1_manual
+
+# 3) Compare to acf result 
+acf_result <- acf(y, plot = FALSE)
+rho1_acf <- acf_result$acf[2]
+rho1_acf
+
 ```
 
 
@@ -162,8 +175,8 @@ Do the following:
 
 ```{r}
 # Insert code here
-avg_polls$favorable_ma_3day <- 
-avg_polls$unfavorable_ma_3day <-
+avg_polls$favorable_ma_3day <- slide_dbl(avg_polls$favorable, mean, .before = 3, .after = 3, .complete = TRUE)
+avg_polls$unfavorable_ma_3day <-slide_dbl(avg_polls$unfavorable, mean, .before = 3, .after = 3, .complete = TRUE)
 
 # Then plot it using our function:
 plot_polls(avg_polls, "favorable_ma_3day", "unfavorable_ma_3day")
