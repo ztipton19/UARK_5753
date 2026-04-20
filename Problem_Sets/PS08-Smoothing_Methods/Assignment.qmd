@@ -80,12 +80,22 @@ slide_dbl(uark_enrollment$total, mean, .before = 3, .after = 0, .complete = TRUE
 3. Compare this to the result of `acf` function
 
 ```{r}
-uark_enrollment$y_lead <- slide_dbl(uark_enrollment$total, mean, .before = 0, .after = 1, .complete = TRUE)
+library(dplyr)
+library(slider)
 
-cor(uark_enrollment$total, uark_enrollment$y_lead, use = "complete.obs")
+uark_enrollment <- uark_enrollment %>%
+  mutate(
+    y_lead = slide_dbl(
+      enrollment,                # replace with your y variable name if different
+      ~ if (length(.x) < 2) NA_real_ else .x[2],
+      .before = 0,
+      .after = 1
+    )
+  )
 
-acf(uark_enrollment$total, plot = FALSE)$acf[2]  # [1] is lag-0, [2] is lag-1
-
+# 2) rho_1 from y_t and y_{t+1}
+rho1_manual <- with(uark_enrollment, cor(enrollment, y_lead, use = "complete.obs"))
+rho1_manual
 ```
 
 
