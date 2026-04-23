@@ -6,7 +6,7 @@ format: pdf
 ---
 
 ```{r}
-setwd("Problem_Sets/PS08-Smoothing_Methods")
+
 ```
 ## Smoothing methods
 
@@ -175,8 +175,8 @@ Do the following:
 
 ```{r}
 # Insert code here
-avg_polls$favorable_ma_3day <- slide_dbl(avg_polls$favorable, mean, .before = 3, .after = 3, .complete = TRUE)
-avg_polls$unfavorable_ma_3day <-slide_dbl(avg_polls$unfavorable, mean, .before = 3, .after = 3, .complete = TRUE)
+avg_polls$favorable_ma_3day <- slide_dbl(avg_polls$favorable, mean, .before = 3, .after = 0, .complete = TRUE)
+avg_polls$unfavorable_ma_3day <- slide_dbl(avg_polls$unfavorable, mean, .before = 3, .after = 0, .complete = TRUE)
 
 # Then plot it using our function:
 plot_polls(avg_polls, "favorable_ma_3day", "unfavorable_ma_3day")
@@ -186,8 +186,8 @@ plot_polls(avg_polls, "favorable_ma_3day", "unfavorable_ma_3day")
 
 ```{r}
 # Insert code here:
-avg_polls$favorable_ma_7day <- 
-avg_polls$unfavorable_ma_7day <-
+avg_polls$favorable_ma_7day <- slide_dbl(avg_polls$favorable, mean, .before = 7, .after = 0, .complete = TRUE)
+avg_polls$unfavorable_ma_7day <- slide_dbl(avg_polls$unfavorable, mean, .before = 7, .after = 0, .complete = TRUE)
 
 # Then plot it using our function:
 plot_polls(avg_polls, "favorable_ma_7day", "unfavorable_ma_7day")
@@ -197,8 +197,8 @@ plot_polls(avg_polls, "favorable_ma_7day", "unfavorable_ma_7day")
 
 ```{r}
 # Insert code here:
-avg_polls$favorable_ma_14day <- 
-avg_polls$unfavorable_ma_14day <-
+avg_polls$favorable_ma_14day <- slide_dbl(avg_polls$favorable, mean, .before = 14, .after = 0, .complete = TRUE)
+avg_polls$unfavorable_ma_14day <- slide_dbl(avg_polls$unfavorable, mean, .before = 14, .after = 0, .complete = TRUE)
 
 
 # Then plot it using our function:
@@ -213,13 +213,9 @@ Give a reason for why you might prefer the 3-day moving average and a reason for
 
 Answer:
 
+The 3-day moving average shows an interesting pattern of divergence and convergence between favorable and unfavorable. There's almost a steady rhythm to it. I'm curious if that's an artifact of poll timing, or if there is some news cycle thing behind it. 
 
-
-
-
-
-
-
+The 14-day moving average is much easier to interpret and narrows big changes to specific areas of interest. Like what's going on in December where there is a large bump in favorability? It's also a lot easier to see where things go downhill in terms of favorability. From some domain knowledge I know that a lot of these reporters (Nate Silver, Galen Druke, etc. RIP 538) look at polling averages to try and find the signal in the noise. Polls are noisey things. 
 
 ### Simple exponential smoothing
 
@@ -235,11 +231,15 @@ plot_polls(avg_polls, "favorable_ses_pt8", "unfavorable_ses_pt8")
 Try now with alpha = 0.5 and alpha = 0.2
 
 ```{r}
-
+avg_polls$favorable_ses_pt5 = ses(avg_polls$favorable, alpha = 0.5)$fitted
+avg_polls$unfavorable_ses_pt5 = ses(avg_polls$unfavorable, alpha = 0.5)$fitted
+plot_polls(avg_polls, "favorable_ses_pt5", "unfavorable_ses_pt5")
 ```
 
 ```{r}
-
+avg_polls$favorable_ses_pt2 = ses(avg_polls$favorable, alpha = 0.2)$fitted
+avg_polls$unfavorable_ses_pt2 = ses(avg_polls$unfavorable, alpha = 0.2)$fitted
+plot_polls(avg_polls, "favorable_ses_pt2", "unfavorable_ses_pt2")
 ```
 
 
@@ -251,7 +251,7 @@ Write answers to the following questions:
 
 Answer:
 
-
+Alpha changes how much noise the model is chasing. 
 
 
 ## Severance popularity
@@ -284,23 +284,23 @@ df$views_ses <- ses(df$views)$fitted
 summary(ses(df$views))
 
 ggplot() + 
-  geom_line(aes(x = date, y = views), data = df, color = "grey40") + 
-  geom_line(
-    aes(x = date, y = views_5day_ma), 
-    data = df, color = "maroon", linewidth = 1.2
-  ) + 
-  geom_line(
-    aes(x = date, y = views_ses), 
-    data = df, color = "navy", linewidth = 1.2
-  ) + 
-  labs(x = NULL, y = "Daily Wikipedia Page Views") + 
+  geom_line(aes(x = date, y = views, color = "Raw Views"), data = df) + 
+  geom_line(aes(x = date, y = views_5day_ma, color = "5-Day MA"), 
+            data = df, linewidth = 1.2) + 
+  geom_line(aes(x = date, y = views_ses, color = "SES"), 
+            data = df, linewidth = 1.2) + 
+  scale_color_manual(
+    values = c("Raw Views" = "grey40", "5-Day MA" = "maroon", "SES" = "navy")
+  ) +
+  labs(x = NULL, y = "Daily Wikipedia Page Views", color = NULL) + 
   theme_light(base_size = 14)
+
 ```
 
 
 Answer:
 
-
+Well both of them are no longer on Friday - so that's an issue. The 5-day MA sort of "builds up" to the Friday premiere, which doesn't make much sense. In this particular situation I don't think we can assume that viewship on Monday has that much relationship to viewship on Friday (if it is a daily show). I'm sure there is some relationship, but having this like half-dome shape in the 5-day MA is inaccurate. SES does a much better job but has the same issue of undershooting and being off temporally. 
 
 
 
