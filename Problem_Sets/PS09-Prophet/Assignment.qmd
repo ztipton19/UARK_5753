@@ -1,6 +1,6 @@
 ---
 title: "Prophet Model"
-author: "PUT YOUR NAME HERE"
+author: "Zachary Tipton"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 format: pdf
 ---
@@ -22,13 +22,14 @@ knitr::opts_chunk$set(
 library(lubridate)
 library(prophet)
 library(ggplot2)
+library(here)
 ```
 
 
 ## Bitcoin Daily Price Data
 
 ```{r}
-bitcoin <- read.csv("bitcoin_daily.csv")
+bitcoin <- read.csv(here("Problem_Sets/PS09-Prophet/data/bitcoin_daily.csv"))
 bitcoin <- bitcoin[, c("date", "price_close")]
 colnames(bitcoin) <- c("ds", "y")
 bitcoin$ds <- ymd(bitcoin$ds)
@@ -40,10 +41,23 @@ plot(x = bitcoin$ds, y = bitcoin$y, type = "l")
 ```{r}
 # Fit a prophet model using the defaults and plot the forecast (using `plot`) and then forecast 45 days into the future.
 
+# Default prophet call
+m <- prophet()
+
+# the date column must be `ds`
+# the outcome variable must be `y`
+m <- fit.prophet(m, bitcoin)
+
+# Extend `df$ds` into the future by `periods` days
+future <- make_future_dataframe(m, periods = 45)
+
+forecast <- predict(m, future)
+
+plot(m, forecast) + add_changepoints_to_plot(m)
 ```
 ```{r}
 # Plot the components (using `prophet_plot_components`)
-
+prophet_plot_components(m, forecast)
 ```
 
 
@@ -53,21 +67,18 @@ Consider a scenario where you work at a financial firm. You want to tell your bo
 
 1. What does your forecast predict to happen to the future price of bitcoin? Using your plot components, write why you think the forecast might be missing the recent jump in prices?
 
-ANSWER HERE
+The forecast is predicting an upward trend in bitcoin prices, however, it is not matching the magnitude of the actual values. In the components 2023-2025 is a singular regression moving upwards. The model, in some internal decision, decided that adding more breakpoints to fit the higher values at the end did not help the model fit enough. 
 
 
 2. Using your components plot, describe what you are assuming about the time-series trend when making the forecast. Should this make you feel cautious about your recommendation?
 
-ANSWER HERE
-
-
-
+Since we're letting prophet take the wheel, I think the biggest assumption is that it did a good job finding the most correct model based on our data. We did not optimize or grid search any hyperparameters, so we're assuming the package did a good job. I would be very cautious loading data, hitting run, and making a decision based on that one outcome. We did not follow the "measure twice, cut once" adage. 
 
 
 ## Trying with `ggplot2` daily downloads:
 
 ```{r}
-downloads <- read.csv("ggplot2_downloads.csv")
+downloads <- read.csv(here("Problem_Sets/PS09-Prophet/data/ggplot2_downloads.csv"))
 colnames(downloads) <- c("package", "ds", "y")
 downloads$ds <- ymd(downloads$ds)
 plot(x = downloads$ds, y = downloads$y, type = "l")
@@ -76,24 +87,47 @@ plot(x = downloads$ds, y = downloads$y, type = "l")
 
 ```{r}
 # Fit a prophet model using the defaults and plot the forecast (using `plot`) and then forecast 45 days into the future.
+# Fit a prophet model using the defaults and plot the forecast (using `plot`) and then forecast 45 days into the future.
+
+# Default prophet call
+m <- prophet()
+
+# the date column must be `ds`
+# the outcome variable must be `y`
+m <- fit.prophet(m, downloads)
+
+# Extend `df$ds` into the future by `periods` days
+future <- make_future_dataframe(m, periods = 45)
+
+forecast <- predict(m, future)
+
+plot(m, forecast) + add_changepoints_to_plot(m)
 
 ```
 ```{r}
 # Plot the components (using `prophet_plot_components`)
-
+prophet_plot_components(m, forecast)
 ```
 
 
 ### Write-up
 
-Say you are a company that creates ggplot2. 
-Your boss assigns you to better understand how popular your package is.
-Present the above analysis in two parts: 
-1. Present the time-series components (trend, weekly effects, and yearly effects). Present this as a story of what the general usage patterns look like for the package over time, throughout the week, and over the year. 
-2. Then, discuss what the 45-day forecast is predicting. Try to explain intuitively why it is predicting that (hint: based on the trends). Present the uncertainty estimates when discussing the forecast. 
+Dear Dr. Butts,
 
-Last, please delete these instructions before submitting! 
-I want this to be written up in a formal manner. 
+I hope this email finds you well. I have completed a ggplot2 usage time-series analysis and the results are as follows. 
+
+Overall, we've seen a steady rate of growth from launching the package to 2019. We then see an increase in download rates for 2019-2021, and even more so from 2021-2022. After 2022 we see a plateau in downloads and then a decline from 2023 to today. It is possible that with the move to primary remote learning during the COVID-19 panedmic, the average amount of downloads was elevated. We are in a decline of daily downloads and it appears have not reverted to a more typical growth rate. It is also possible there are other factors included here, such as possible other packages gaining attention, a switch to Python to be more AI ready, or other circumstances that would require further investigation. 
+
+Using Friday as the referene point, downloads are elevated but similar across Monday-Thursday. While Saturday and Sunday are lower than weekdays. This is to be expected since it follows the typical work week. 
+
+In terms of day of year trends, the Fall semester (August-December) has a noticible increase in downloads over the rest of the year. Spring semester (Janurary-May) doesn't reach Fall levels, and there is a decline in downloads during the summer. There is also a notible decrease in downloads over the winter holiday. Nothing particularly suprising here. Students in data science type degrees would likely download ggplot2 in August when they start and then have the program continuing into the next Spring semester. 
+
+Using the prophet library in R, we predicted growth 45 days out from the current date. Our forecast shows continued strong growth in ggplot2 downloads, but at a slight decline from the peak stated earlier. The upper bound is around 63,000 and the lower bound is just shy of 40,000, meaning we have fairly wide confidence intervals. Weekly and yearly patterns are strong which is why the forecast looks somewhat concave. If I had to make a prediction, I suspect that daily downloads are going to continue returning to 2019 values around 25,000 and stabilize. 
+
+Thank you for your time. 
+
+Best,
+Zachary 
 
 
 
